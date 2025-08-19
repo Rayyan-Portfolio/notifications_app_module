@@ -32,7 +32,7 @@ ALLOWED_HOSTS = []
 
 INSTALLED_APPS = [
     'notifications',
-    'rest_framework',# Custom app for notifications
+    'rest_framework',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -143,4 +143,4 @@ CELERY_ENABLE_UTC = True
 # Notifications basics (for date-only scheduling + .ics later)
 NOTIFY_DEFAULT_SEND_TIME = "09:00"
 NOTIFY_ALLOW_DATE_ONLY = True
-NOTIFY_ICS_DEFAULT_DURATION_MIN = 30
+NOTIFY_ICS_DEFAULT_DURATION_MIN = 60
