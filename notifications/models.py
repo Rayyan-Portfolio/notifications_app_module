@@ -101,13 +101,13 @@ class NotificationLog(models.Model):
 
     # simple status for this attempt
     STATUS_CHOICES = [
-        ("PENDING", "Pending"),
+        ("STARTED", "Started"),
         ("SENT", "Sent"),
         ("FAILED", "Failed"),
         ("RETRYING", "Retrying"),
         ("CANCELED", "Canceled"),
     ]
-    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="PENDING")
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="Started")
 
     # quick snapshot info (helps debugging without opening the parent)
     to_email = models.EmailField()                 # denormalized for quick search
