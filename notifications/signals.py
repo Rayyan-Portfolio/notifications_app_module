@@ -1,10 +1,10 @@
-from django.db.models.signals import pre_save
+from django.db.models.signals import pre_save, post_save
 from django.dispatch import receiver
 from django.utils import timezone
+from django.db import transaction
 
 from .models import ScheduledNotification
-from .services import compute_idempotency_key
-from .tasks import send_notification
+from .services import compute_idempotency_key, enqueue_for_delivery
 
 @receiver(pre_save, sender=ScheduledNotification)
 def scheduled_notification_pre_save(sender, instance: ScheduledNotification, **kwargs):
@@ -19,37 +19,21 @@ def scheduled_notification_pre_save(sender, instance: ScheduledNotification, **k
         instance.idempotency_key = compute_idempotency_key(
             template_key=instance.template.key,
             to_email=instance.to_email,
-            scheduled_at=instance.scheduled_at,   # UTC or None
+            effective_send_at=instance.effective_send_at,   # UTC or None
             context=instance.context,
             attach_ics=instance.attach_ics,
         )
 
     # 2) Set initial state on create
     if instance.pk is None:  # creating (not updating)
-        if instance.scheduled_at and instance.scheduled_at > timezone.now():
+        if instance.effective_send_at and instance.effective_send_at > timezone.now():
             instance.state = ScheduledNotification.Status.SCHEDULED
         else:
             instance.state = ScheduledNotification.Status.PENDING
 
-
+@receiver(post_save, sender=ScheduledNotification)
 def scheduled_notification_post_save(sender, instance: ScheduledNotification, created: bool, **kwargs):
-    """
-    After a ScheduledNotification is created:
-    - If it's canceled, do nothing.
-    - If it has a future scheduled_at, enqueue Celery with ETA.
-    - Otherwise, enqueue to send immediately.
-
-    NOTE: Make sure your API view does NOT also enqueue,
-    or you'll double-schedule. With this signal, creation is enough.
-    """
-    if not created:
+    if not created or instance.canceled:
         return
-
-    if instance.canceled:
-        return
-
-    # Future time -> delay until then. Otherwise send now.
-    if instance.scheduled_at and instance.scheduled_at > timezone.now():
-        send_notification.apply_async(args=[instance.id], eta=instance.scheduled_at)
-    else:
-        send_notification.delay(instance.id)
+    # Delegate enqueue logic to services (single source of truth)
+    transaction.on_commit(lambda: enqueue_for_delivery(instance))

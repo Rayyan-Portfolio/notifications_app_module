@@ -85,7 +85,7 @@ def send_notification(self, notification_id: int):
 
     # Optional .ics attachment
     if sn.attach_ics:
-        start_dt = sn.scheduled_at or timezone.now()
+        start_dt = sn.effective_send_at or timezone.now()
         ics_bytes = _build_ics(
             summary=subject,
             starts_at=start_dt,
